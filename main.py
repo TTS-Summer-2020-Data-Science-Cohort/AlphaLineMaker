@@ -13,6 +13,10 @@ from kivy.animation import Animation
 from kivy.modules import inspector
 from kivy.clock import Clock
 from uiDeclarations import LandingScreenWrapper, LandingScreen, InLineScreen, MakeLineScreen, ManageLineScreen, ManageWaitScreen, ScreenChanger, root, WaitLineVisual, LineWatcherLabel
+# You must create your own fireBaseConfig.py file in the following format:
+# authKey = <AUTH KEY>
+# webAPIKey = <API KEY IF USED>
+# baseUrl = 'https://<NAME OF FIREBASE DATABASE>.firebaseio.com/'
 from fireBaseConfig import webAPIKey, authKey, baseUrl
 
 kivy.require('2.0.0')
