@@ -1,49 +1,49 @@
 #:kivy 2.0.0
 #: import SlideTransition kivy.uix.screenmanager.SlideTransition
+#:import Factory kivy.factory.Factory
 root:
     ScreenChanger:
         id: screenChanger
         name: 'screenChanger'
         LandingScreenWrapper:
-            # name: 'lsw'
             manager: 'screenChanger'
             LandingScreen:
                 name: 'landing'
                 manager: 'screenChanger'
                 InLineScreen:
-                    name: 'inLine'
+                    # name: 'inLine'
                     manager: 'screenChanger'
                 MakeLineScreen:
-                    name: 'makeLine'
+                    # name: 'makeLine'
                     manager: 'screenChanger'
         ManageLineScreen:
-            # id: MLS
-            # name: 'manageLine'
             manager: 'screenChanger'
-            # Button:
-            #     text: 'Go back'
-            #     on_release:
-            #         root.current = 'inLine'
         ManageWaitScreen:
-            # id: MWS
-            # name: 'manageWait'
             manager: 'screenChanger'
-            # Button:
-            #     text: 'Go back'
-            #     on_release:
-            #         root.current = 'inLine'
 
 <ScreenChanger>:
     id: screenChanger
+    canvas.before:
+        Color:
+            rgb: 161/256, 176/256, 199/256
+        Rectangle:
+            pos: self.pos
+            size: self.size
     LandingScreenWrapper:
+        id: lsw
         name: 'lsw'
         manager: 'screenChanger'
+        canvas.before:
+            Color:
+                rgb: 161/256, 176/256, 199/256
+            Rectangle:
+                pos: self.pos
+                size: self.size
         LandingScreen:
             name: 'landing'
             manager: 'screenChanger'
             direction: 'left'
-            background_color: 1, 1, 1, 1
-            InLineScreen:
+            InLineScreen:                
                 name: 'inLine'
                 manager: 'screenChanger'
                 padding: 50, 100, 50, 100
@@ -52,17 +52,21 @@ root:
                 row_default_height: 40
                 rows: 3
                 Label:
-                    text: 'Enter the name of the line you would like to join: '
+                    bold: True
+                    font_size: '20sp'
+                    text: 'Join a line'
                 TextInput:
                     id: joinEntry
                     hint_text: 'Enter text here'
-                Button:
+                    multiline: False
+                SmoothButton:  
+                    back_color: (.2, .5, 1, 1) 
                     text: 'Join'
                     on_release: 
-                        app.patchJoin(joinEntry.text)
+                        app.joinQueue(joinEntry.text)
                         root.transition = SlideTransition(direction='up')
                         root.current = 'manageWait'
-            
+
             MakeLineScreen:   
                 name: 'makeLine'
                 manager: 'screenChanger'
@@ -72,49 +76,109 @@ root:
                 row_default_height: 40
                 rows: 3
                 Label:
-                    text: 'Enter the name of the line you would like to make: '
+                    bold: True
+                    font_size: '20sp'
+                    text: 'Create or manage a line'
                 TextInput:
                     id: createEntry
                     hint_text: 'Enter text here'
-                Button:
-                    text: 'Create'
+                    multiline: False
+                SmoothButton:  
+                    back_color: (.2, .5, 1, 1) 
+                    text: 'Create/Manage Line'
                     on_release: 
-                        app.patchCreate(createEntry.text)
+                        app.createQueue(createEntry.text)
                         root.transition = SlideTransition(direction='up')
                         root.current = 'manageLine'
+                        createEntry.disabled = True
+
     ManageLineScreen:
         id: MLS
         name: 'manageLine'
         manager: 'screenChanger'
+        canvas.before:
+            Color:
+                rgb: 161/256, 176/256, 199/256
+            Rectangle:
+                pos: self.pos
+                size: self.size
         GridLayout:
             padding: 50, 100, 50, 100
             spacing: 10, 10
             row_force_default: 'true'
             row_default_height: 40
-            rows: 3
+            rows: 6
             Label:
+                bold: True
                 text: 'This is the screen where you manage your line'
-            Button:
+            SmoothButton:  
+                back_color: (.2, .5, 1, 1) 
+                text: 'Accept next customer'
+                on_release:
+                    app.acceptNextInQueue()
+            SmoothButton:  
+                back_color: (.2, .5, 1, 1) 
                 text: 'Go back'
                 on_release:
                     root.transition = SlideTransition(direction='down')
                     root.current = 'lsw'
+            SmoothButton:  
+                back_color: (.2, .5, 1, 1) 
+                text: 'Delete line'
+                on_release:
+                    app.destroyQueue(app.managedQueue)
+                    createEntry.disabled = False
+                    root.transition = SlideTransition(direction='down')
+                    root.current = 'lsw'
+            Label:
+                text: 'Number of customers in line: '
+            LineWatcherLabel:
+                id: lineWatcher
+                text: 'No customers in line'
+
     ManageWaitScreen:
         id: MWS
         name: 'manageWait'
         manager: 'screenChanger'
-        GridLayout:
+        canvas.before:
+            Color:
+                rgb: 161/256, 176/256, 199/256
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        WaitLineVisual:
             padding: 50, 100, 50, 100
             spacing: 10, 10
             row_force_default: 'true'
             row_default_height: 40
-            rows: 3
-            Label:
-                text: 'This is the screen where you see yourself in line'
-            Button:    
-                text: 'Go back'
+            rows: 6
+            SmoothButton:  
+                back_color: (.2, .5, 1, 1)  
+                text: 'Leave queue'
                 on_release:
+                    app.anim(userPerson, 60, 420)
+                    app.leaveQueue()
                     root.transition = SlideTransition(direction='down')
                     root.current = 'lsw'
-                
-        
+            Label:
+                bold: True
+                text: 'Your place in line is: '
+            LineWatcherLabel:
+                id: lineWatcher
+                text: 'Not in line yet'
+            Image:
+                id: userPerson
+                source: 'person.png'
+                allow_stretch: True
+
+<SmoothButton@Button>:
+    background_color: (0, 0, 0, 0)
+    background_normal: ''
+    back_color: (1, 0, 1, 1)
+    canvas.before:
+        Color:
+            rgba: self.back_color
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [18]

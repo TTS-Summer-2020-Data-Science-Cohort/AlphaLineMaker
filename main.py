@@ -1,71 +1,22 @@
-# This is a small project to create an app alternative to physically waiting in line after covid 19
-# Built during the TechTalentSouth Data Science class of Summer 2020 with the help of Gary Jackson
-# todo:
-# SERVERSIDE:
-# 1. firebase streaming/realtime rest api to send json data of who is waiting in which line (NOT POLLING)
-# 2. simple first in, first out database interface
-# 3. there must be some functionality to accept someone from the line on the owner side, or to remove them if
-#       they don't show up
-# CLIENTSIDE:
-# 4. simple ui with landing screen just as a button to open camera to scan logo and start waiting in line
-# 5. swipe left for business owner mode to take picture of logo and start a new virtual line
-# 6. waiting in line screen with view of everyone currently waiting in line and an indication of where you are
-#
-# ideas and other concepts:
-# how can we uniquely identify each instance of the app without the end user having to login and make an account
-# does the business owner mode need to be able to pick which parties it currently has availability / capacity for
-# does the end user need a way to indicate size of party
-# estimated wait time
-from kivy.app import App
-from kivy.lang import Builder
-from kivy.uix.carousel import Carousel
-from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.uix.gridlayout import GridLayout
-from kivy.network.urlrequest import UrlRequest
 import plyer
 import json
 import requests
 import kivy
-from kivy.core.window import Window
 from functools import partial
-
+from kivy.app import App
+from kivy.lang import Builder
+from kivy.network.urlrequest import UrlRequest
+from kivy.core.window import Window
+from kivy.core.image import Image as CoreImage
+from kivy.uix.label import Label
+from kivy.animation import Animation
 from kivy.modules import inspector
+from kivy.clock import Clock
+from uiDeclarations import LandingScreenWrapper, LandingScreen, InLineScreen, MakeLineScreen, ManageLineScreen, ManageWaitScreen, ScreenChanger, root, WaitLineVisual, LineWatcherLabel
+from fireBaseConfig import webAPIKey, authKey, baseUrl
 
-kivy.require('2.0.0')  # replace with your current kivy version !
+kivy.require('2.0.0')
 Window.size = (320, 420)
-
-
-class LandingScreenWrapper(Screen):
-    pass
-
-
-class LandingScreen(Carousel):
-    pass
-
-
-class InLineScreen(GridLayout):
-    pass
-
-
-class MakeLineScreen(GridLayout):
-    pass
-
-
-class ManageLineScreen(Screen):
-    pass
-
-
-class ManageWaitScreen(Screen):
-    pass
-
-
-class ScreenChanger(ScreenManager):
-    pass
-
-
-class root(Screen):
-    pass
-
 
 kv = Builder.load_file("mylinemaker.kv")
 
@@ -74,51 +25,99 @@ class MyLineMaker(App):
     # find unique id for each user using plyer based on device
     # deviceId = plyer.uniqueid.id
     deviceId = "A literal cat"
-    # Set the url for the firebase rest api
-    url = 'https://linemaker-6e92d.firebaseio.com/.json'
-    authKey = 'ZV9AP88xC6JiX2lX2dy5dasQGtPyAVbMMpMU7GER'
-    webAPIKey = 'AIzaSyDWAgvkBImYRK1oNTol-eyqz_0VRikYpqU'
-    # Database functions (CRUM)
+    img = CoreImage("person.png")
+    currentQueue = ''
+    placeInQueueId = ''
+    placeInQueue = 'What'
+    managedQueue = False
 
-    def patchJoin(self, JSON):
-        toDatabase = json.loads(
-            '{"' + str(JSON) + '": {"id": "' + str(self.deviceId) + '"}}')
-        # new async io
-        # self.req = UrlRequest(self.url, req_body=toDatabase, method='PATCH',
-        #                       on_success=partial(self.update_label, "Good job"))
-        # old blocking io:
-        requests.patch(url=self.url, json=toDatabase)
+    def getFirebaseUrl(self, key):
+        urlSuffix = '.json'
+        return baseUrl + key + urlSuffix + '?auth=' + authKey
 
-    def patchLeave(self, JSON):
-        # How to find which line you are in?
-        # requests.delete(url=self.url[:-5] + JSON + ".json")
-        UrlRequest(self.url[:-5] + JSON + ".json", method='DELETE')
+    def joinQueue(self, queueToJoin):
+        if(queueToJoin in self.allQueues):
+            self.currentQueue = queueToJoin
+            response = requests.post(
+                self.getFirebaseUrl(queueToJoin), json="")
+            self.placeInQueueId = json.loads(response.content)['name']
+            print(self.placeInQueueId)
+        else:
+            print("That is not a valid line")
 
-    def patchCreate(self, JSON):
-        toDatabase = json.loads('{"' + JSON + '": {"id": "null"}}')
-        # requests.patch(url=self.url, json=toDatabase)
-        UrlRequest(self.url, req_body=toDatabase, method='PATCH')
+    def leaveQueue(self):
+        if(self.currentQueue != ''):
+            requests.delete(self.getFirebaseUrl(
+                self.currentQueue + "/" + self.placeInQueueId))
+            self.currentQueue = ''
 
-    def patchDestroy(self, JSON):
-        # requests.delete(url=self.url[:-5] + JSON + ".json")
-        UrlRequest(self.url[:-5] + JSON + ".json", method='DELETE')
+    def createQueue(self, queueToCreate):
+        # Error for getting empty queues that is not able to be iterated :(
+        if(queueToCreate in self.allQueues):
+            print(f'Managing line for {queueToCreate}')
+        else:
+            requests.patch(self.getFirebaseUrl(""), json=json.loads(
+                '{"' + queueToCreate + '": {"End of line": " "}}'))
+            self.managedQueue = queueToCreate
 
-    def get(self):
-        # request = requests.get(self.url + '?auth=' + self.authKey)
-        request = UrlRequest(self.url + '?auth=' + self.authKey, method='GET')
-        print(json.loads(request))
+    def destroyQueue(self, queueToDestroy):
+        if(self.managedQueue == True):
+            requests.delete(self.getFirebaseUrl(
+                queueToDestroy))
+            self.managedQueue = False
+        else:
+            print("This would've deleted all entries")
 
-    def test(self):
-        print("Button worked")
+    # def getQueue(self):
+    #     response = requests.get(self.getFirebaseUrl(self.currentQueue))
+    #     queue = json.loads(response.content)
+    #     placeInQueue = list(queue.keys()).index(self.placeInQueueId) + 1
+        # for i in queue:
+        #     if(i != 'End of line'):
+        #         WaitLineVisual.add_widget((Image=self.img))
+        # WaitLineVisual.add_widget((Label(text=placeInQueue)))
 
-    def update_label(self, label):
-        print(label)
-        print(self.req)
+    def getPlace(self, *kwargs):
+        if(self.currentQueue != ''):
+            response = requests.get(self.getFirebaseUrl(self.currentQueue))
+            queue = json.loads(response.content)
+            self.placeInQueue = list(queue.keys()).index(
+                self.placeInQueueId) + 1
+            print(self.placeInQueue)
+        else:
+            self.placeInQueue = 'Not in line yet'
+
+    def getAllQueues(self, *kwargs):
+        response = requests.get(self.getFirebaseUrl(""))
+        self.allQueues = json.loads(response.content)
+        print(self.allQueues)
+
+    def getManagedQueue(self):
+        response = requests.get(self.getFirebaseUrl(self.managedQueue))
+        queue = json.loads(response.content)
+        print(queue)
+
+    def acceptNextInQueue(self):
+        if(self.managedQueue == True):
+            foundQueue = map(
+                lambda i: i == self.managedQueue, self.allQueues)
+            print(foundQueue)
+        print(self.managedQueue)
+
+    def anim(self, widge, xDest, yDest):
+        anim = Animation(x=xDest, y=yDest, duration=2.)
+        anim.start(widge)
 
     # Build the kv file
 
     def build(self):
         inspector.create_inspector(Window, ScreenChanger)
+        sc = ScreenChanger()
+        lw = sc.ids.lineWatcher
+        self.getAllQueues()
+        Clock.schedule_interval(self.getAllQueues, 20)
+        Clock.schedule_interval(self.getPlace, 20)
+        Clock.schedule_interval(partial(lw.update, new=self.placeInQueue), 20)
         return kv
 
 
