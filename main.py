@@ -12,7 +12,7 @@ from kivy.uix.label import Label
 from kivy.animation import Animation
 from kivy.modules import inspector
 from kivy.clock import Clock
-from uiDeclarations import LandingScreenWrapper, LandingScreen, InLineScreen, MakeLineScreen, ManageLineScreen, ManageWaitScreen, ScreenChanger, root, WaitLineVisual, LineWatcherLabel
+from uiDeclarations import LandingScreenWrapper, LandingScreen, InLineScreen, MakeLineScreen, ManageLineScreen, ManageWaitScreen, ScreenChanger, WaitLineVisual, LineWatcherLabel, fakeRoot
 # You must create your own fireBaseConfig.py file in the following format:
 # authKey = <AUTH KEY>
 # webAPIKey = <API KEY IF USED>
@@ -22,17 +22,17 @@ from fireBaseConfig import webAPIKey, authKey, baseUrl
 kivy.require('2.0.0')
 Window.size = (320, 420)
 
-kv = Builder.load_file("mylinemaker.kv")
+# kv = Builder.load_file("mylinemaker.kv")
 
 
-class MyLineMaker(App):
+class MyLineMakerApp(App):
     # find unique id for each user using plyer based on device
     # deviceId = plyer.uniqueid.id
-    deviceId = "A literal cat"
+    deviceId = "Mock ID"
     img = CoreImage("person.png")
     currentQueue = ''
     placeInQueueId = ''
-    placeInQueue = 'What'
+    placeInQueue = 'Not in line yet'
     managedQueue = False
 
     def getFirebaseUrl(self, key):
@@ -56,9 +56,10 @@ class MyLineMaker(App):
             self.currentQueue = ''
 
     def createQueue(self, queueToCreate):
-        # Error for getting empty queues that is not able to be iterated :(
+        # Error for getting empty queues that is not able to be iterated
         if(queueToCreate in self.allQueues):
             print(f'Managing line for {queueToCreate}')
+            self.managedQueue = queueToCreate
         else:
             requests.patch(self.getFirebaseUrl(""), json=json.loads(
                 '{"' + queueToCreate + '": {"End of line": " "}}'))
@@ -87,9 +88,10 @@ class MyLineMaker(App):
             queue = json.loads(response.content)
             self.placeInQueue = list(queue.keys()).index(
                 self.placeInQueueId) + 1
-            print(self.placeInQueue)
+            print(str(self.placeInQueue) + "Well done")
         else:
-            self.placeInQueue = 'Not in line yet'
+            self.placeInQueue = 'Not'
+            print(self.placeInQueue)
 
     def getAllQueues(self, *kwargs):
         response = requests.get(self.getFirebaseUrl(""))
@@ -112,18 +114,31 @@ class MyLineMaker(App):
         anim = Animation(x=xDest, y=yDest, duration=2.)
         anim.start(widge)
 
+    def getPlaceInQueue(self):
+        return str(self.placeInQueue)
+
     # Build the kv file
 
     def build(self):
-        inspector.create_inspector(Window, ScreenChanger)
-        sc = ScreenChanger()
-        lw = sc.ids.lineWatcher
+        # inspector.create_inspector(Window, ScreenChanger)
+        # sc = ScreenChanger()
+        # lw = sc.ids.lineWatcher
+        # kv.ids.lineWatcher.update
+
         self.getAllQueues()
         Clock.schedule_interval(self.getAllQueues, 20)
         Clock.schedule_interval(self.getPlace, 20)
-        Clock.schedule_interval(partial(lw.update, new=self.placeInQueue), 20)
-        return kv
+        # CURRENT ISSUES: Why is only the initial value passed to the partial function? So the ui is only updated with the first value and nothing from the database
+        # Structure of kv file is messy, what is the purpose of fakeRoot? Why can't we just use the markup in the second half of the kv file
+        # How can we get the current instance variables from self and pass them to the partial function? We are probably just passing class values and not instance variables.
+        Clock.schedule_interval(
+            partial(self.root.ids.screenChanger.update, self=self.root.ids.screenChanger, new=self.getPlaceInQueue), 20)
+        # Clock.schedule_interval(
+        #     lambda WaitLineVisual: WaitLineVisual.update(self.placeInQueue), 20)
+        print(self.root.children[0].children)
+        print(self.root.ids.screenChanger)
+        # return sc
 
 
 if __name__ == '__main__':
-    MyLineMaker().run()
+    MyLineMakerApp().run()

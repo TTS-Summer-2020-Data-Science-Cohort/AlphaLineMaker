@@ -29,22 +29,31 @@ class ManageWaitScreen(Screen):
 
 
 class ScreenChanger(ScreenManager):
-    pass
+    def update(*kwargs, self, new):
+        self.ids.lineWatcher.text = new
+        # print(self.ids.lineWatcher.text)
 
 
-class root(Screen):
+class fakeRoot(Screen):
     pass
 
 
 class WaitLineVisual(GridLayout):
-    def show_labels(self, strings):
-        self.clear_widgets()
+    pass
+    # def show_labels(self, strings):
+    #     self.clear_widgets()
 
-        for text in strings:
-            label = Label(text=text)
-            self.add_widget(label)
+    #     for text in strings:
+    #         label = Label(text=text)
+    #         self.add_widget(label)
+
+    # def update(*kwargs, self, new):
+    #     print(self.ids.values)
+    # self.ids.lineWatcher.text = new
 
 
 class LineWatcherLabel(Label):
-    def update(self, *args, new):
+    # def update(self, *args, new):
+    #     self.text = new
+    def update(self, new):
         self.text = new
